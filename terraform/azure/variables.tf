@@ -2,9 +2,16 @@ variable "location" {
   default = "East US 2"
 }
 
+#variable "resource_group_name" {
+#  default = "rg-vm-github-actions"
+#}
+
+# Nombre del grupo de recursos dinámico si no se pasa nada
 variable "resource_group_name" {
-  default = "rg-vm-github-actions"
+  description = "Nombre del grupo de recursos"
+  default     = "rg-vm-github-actions-${formatdate("YYYYMMDDHHMMSS", timestamp())}"
 }
+
 
 variable "vm_size" {
   default = "Standard_B1s"
