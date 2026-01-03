@@ -66,7 +66,8 @@ jobs:
         working-directory: terraform/aws
 
       - name: Mostrar IP AWS antes de SSH
-        run: echo "La IP de AWS es: ${{ steps.tf_output_aws.outputs.AWS_INSTANCE_IP }}"
+        run: |
+          echo "La IP de AWS es: ${{ steps.tf_output_aws.outputs.AWS_INSTANCE_IP }}"
 
       - name: Esperar a que EC2 acepte SSH
         run: sleep 60
@@ -133,7 +134,8 @@ jobs:
         working-directory: terraform/azure
 
       - name: Mostrar IP Azure antes de SSH
-        run: echo "La IP de Azure es: ${{ steps.tf_output_azure.outputs.azure_vm_ip }}"
+        run: |
+          echo "La IP de Azure es: ${{ steps.tf_output_azure.outputs.azure_vm_ip }}"
 
       - name: Esperar a que Azure VM acepte SSH
         run: sleep 60
