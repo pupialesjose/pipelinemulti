@@ -2,16 +2,16 @@ variable "location" {
   default = "East US 2"
 }
 
-#variable "resource_group_name" {
-#  default = "rg-vm-github-actions"
-#}
-
-
 variable "resource_group_name" {
-  description = "Nombre del grupo de recursos."
-  type        = string
-  default     = ""
+  default = "rg-vm-github-actions"
 }
+
+
+#variable "resource_group_name" {
+#  description = "Nombre del grupo de recursos."
+#  type        = string
+#  default     = ""
+#}
 
 
 variable "vm_size" {
