@@ -1,4 +1,4 @@
-name: CI/CD Calculadora con Terraform
+name: CI/CD Calculadora AWS
 
 on:
   push:
@@ -20,7 +20,7 @@ jobs:
         with:
           terraform_version: 1.6.6
 
-      # 3️⃣ Configurar credenciales de AWS
+      # 3️⃣ Configurar credenciales AWS
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -28,45 +28,43 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-2
 
-      # 4️⃣ Login Docker Hub
+      # 4️⃣ Docker build & push
       - name: Login Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # 5️⃣ Build & push Docker image
-      - name: Build and push image
+      - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/calculadora:latest
 
-      # 6️⃣ Terraform init
+      # 5️⃣ Terraform init
       - name: Terraform init
         run: terraform init
-        working-directory: terraform
+        working-directory: terraform/aws
 
-      # 7️⃣ Terraform apply
+      # 6️⃣ Terraform apply
       - name: Terraform apply
-        run: terraform apply -auto-approve -var="aws_region=us-east-2" -var="ami_id=${{ secrets.AMI_ID }}" -var="key_name=${{ secrets.KEY_NAME }}" -var="docker_image=${{ secrets.DOCKERHUB_USERNAME }}/calculadora:latest"
-        working-directory: terraform
+        run: |
+          terraform apply -auto-approve -var="aws_region=us-east-2" -var="ami_id=${{ secrets.AMI_ID }}" -var="key_name=${{ secrets.KEY_NAME }}" -var="docker_image=${{ secrets.DOCKERHUB_USERNAME }}/calculadora:latest"
+        working-directory: terraform/aws
 
-      # 8️⃣ Obtener IP pública de la instancia
+      # 7️⃣ Obtener IP pública de la instancia
       - name: Obtener IP pública de la instancia
         id: tf_output
         run: |
           echo "INSTANCE_IP=$(terraform output -raw instance_public_ip)" >> $GITHUB_OUTPUT
-        working-directory: terraform
+        working-directory: terraform/aws
 
-      # 9️⃣ Esperar a que EC2 levante SSH
-      - name: Esperar a que EC2 acepte SSH
-        run: |
-          echo "Esperando 60 segundos para que EC2 levante SSH..."
-          sleep 60
+      # 8️⃣ Esperar a que EC2 acepte SSH
+      - name: Esperar SSH
+        run: sleep 60
 
-      # 🔟 Actualizar contenedor en EC2
+      # 9️⃣ Actualizar contenedor en EC2
       - name: Update app on EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -74,26 +72,11 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_KEY }}
           script: |
-            # Esperar a que apt-get quede libre
-            until sudo apt-get update -y; do
-              echo "Esperando a que apt-get quede libre..."
-              sleep 5
-            done
-
-            # Instalar Docker si no está presente
-            if ! command -v docker &> /dev/null; then
-              echo "Instalando Docker..."
-              sudo apt-get install -y docker.io
-            fi
-
-            # Asegurarse que Docker esté habilitado y corriendo
+            sudo apt update
+            sudo apt install -y docker.io
             sudo systemctl enable docker
             sudo systemctl start docker
-
-            # Detener y eliminar contenedor anterior (si existe)
+            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/calculadora:latest
             sudo docker stop calculadora || true
             sudo docker rm calculadora || true
-
-            # Ejecutar contenedor con la imagen más reciente
-            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/calculadora:latest
             sudo docker run -d -p 8080:8080 --name calculadora ${{ secrets.DOCKERHUB_USERNAME }}/calculadora:latest
