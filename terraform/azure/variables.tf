@@ -7,9 +7,14 @@ variable "location" {
 #}
 
 # Nombre del grupo de recursos dinámico si no se pasa nada
+#variable "resource_group_name" {
+#  description = "Nombre del grupo de recursos"
+#  default     = "rg-vm-github-actions-${formatdate("YYYYMMDDHHMMSS", timestamp())}"
+#}
+
 variable "resource_group_name" {
-  description = "Nombre del grupo de recursos"
-  default     = "rg-vm-github-actions-${formatdate("YYYYMMDDHHMMSS", timestamp())}"
+  description = "Nombre del grupo de recursos. Si se deja vacío, se generará uno dinámico."
+  default     = ""
 }
 
 
