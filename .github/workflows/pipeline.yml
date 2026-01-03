@@ -1,0 +1,74 @@
+name: CI/CD Calculadora con Terraform
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.6
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-2
+
+      # Docker build & push
+      - name: Login Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/calculadora:latest
+
+      # Terraform
+      - name: Terraform init
+        run: terraform init
+        working-directory: terraform
+
+      - name: Terraform apply
+        run: terraform apply -auto-approve -var="aws_region=us-east-2" -var="ami_id=${{ secrets.AMI_ID }}" -var="key_name=${{ secrets.KEY_NAME }}" -var="docker_image=${{ secrets.DOCKERHUB_USERNAME }}/calculadora:latest"
+        working-directory: terraform
+
+      - name: Obtener IP pública de la instancia
+        id: tf_output
+        run: |
+          echo "INSTANCE_IP=$(terraform output -raw instance_public_ip)" >> $GITHUB_OUTPUT
+        working-directory: terraform
+
+      - name: Esperar a que EC2 acepte SSH
+        run: |
+          echo "Esperando 60 segundos para que EC2 levante SSH..."
+          sleep 60
+
+
+      # Update container
+      - name: Update app on EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ steps.tf_output.outputs.INSTANCE_IP }}
+          username: ubuntu
+          key: ${{ secrets.EC2_KEY }}
+          script: |
+            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/calculadora:latest
+            sudo docker stop calculadora || true
+            sudo docker rm calculadora || true
+            sudo docker run -d -p 8080:8080 --name calculadora ${{ secrets.DOCKERHUB_USERNAME }}/calculadora:latest
