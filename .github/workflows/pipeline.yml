@@ -131,7 +131,7 @@ jobs:
       - name: Update app on Azure VM
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ steps.tf_output_azure.outputs.AZURE_VM_IP }}
+          host: ${{ steps.tf_output_azure.outputs.azure_vm_ip }}
           username: azureuser
           key: ${{ secrets.AZURE_SSH_PRIVATE_KEY }}
           script: |
