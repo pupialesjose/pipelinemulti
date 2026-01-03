@@ -117,15 +117,15 @@ jobs:
       - name: Terraform init & apply Azure
         run: |
           terraform init
-          #terraform apply -auto-approve -lock=false -input=false
-          terraform apply -auto-approve -lock=false -input=false -var="resource_group_name=rg-vm-github-actions-$(date +%Y%m%d%H%M%S)"
+          terraform apply -auto-approve -lock=false -input=false
+          #terraform apply -auto-approve -lock=false -input=false -var="resource_group_name=rg-vm-github-actions-$(date +%Y%m%d%H%M%S)"
         working-directory: terraform/azure
 
       - name: Obtener IP pública de Azure VM
         id: tf_output_azure
         run: |
-          #terraform refresh -lock=false -input=false
-          terraform refresh -lock=false -input=false -var="resource_group_name=rg-vm-github-actions-$(date +%Y%m%d%H%M%S)"
+          terraform refresh -lock=false -input=false
+          #terraform refresh -lock=false -input=false -var="resource_group_name=rg-vm-github-actions-$(date +%Y%m%d%H%M%S)"
           echo "azure_vm_ip=$(terraform output -raw vm_public_ip)" >> $GITHUB_OUTPUT
         working-directory: terraform/azure
 
