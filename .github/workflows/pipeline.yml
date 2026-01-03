@@ -117,14 +117,19 @@ jobs:
       - name: Terraform init & apply Azure
         run: |
           terraform init
-          terraform apply -auto-approve
+          terraform apply -auto-approve -lock=false -input=false
         working-directory: terraform/azure
 
       - name: Obtener IP pública de Azure VM
         id: tf_output_azure
         run: |
-          echo "AZURE_VM_IP=$(terraform output -raw vm_public_ip)" >> $GITHUB_OUTPUT
+          terraform refresh -lock=false -input=false
+          echo "azure_vm_ip=$(terraform output -raw vm_public_ip)" >> $GITHUB_OUTPUT
         working-directory: terraform/azure
+
+      - name: Mostrar IP antes de SSH
+        run: |
+          echo "La IP de Azure es: ${{ steps.tf_output_azure.outputs.azure_vm_ip }}"
 
       - name: Esperar a que Azure VM acepte SSH
         run: sleep 60
@@ -132,10 +137,11 @@ jobs:
       - name: Update app on Azure VM
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ steps.tf_output_azure.outputs.AZURE_VM_IP }}
+          host: ${{ steps.tf_output_azure.outputs.azure_vm_ip }}
           username: azureuser
           key: ${{ secrets.AZURE_SSH_PRIVATE_KEY }}
           script: |
+            # Instalar Docker si no está
             if ! command -v docker >/dev/null 2>&1; then
               sudo apt update
               sudo apt install -y docker.io
@@ -143,16 +149,16 @@ jobs:
               sudo systemctl start docker
             fi
 
-            # Generar puerto aleatorio
-            PORT=$((RANDOM % 55535 + 10000))
-
-            # Detener contenedores existentes
+            # Detener contenedores existentes por nombre o puerto
             for cid in $(sudo docker ps -aq --filter "name=calculadora"); do
+              sudo docker stop $cid || true
+              sudo docker rm $cid || true
+            done
+            for cid in $(sudo docker ps -aq --filter "publish=8080"); do
               sudo docker stop $cid || true
               sudo docker rm $cid || true
             done
 
             # Lanzar contenedor
-            sudo docker run -d -p $PORT:8080 --name calculadora ${{ secrets.DOCKERHUB_USERNAME }}/calculadora:latest
-
-            echo "Azure app disponible en: http://$(curl -s http://169.254.169.254/metadata/instance?api-version=2021-02-01 | jq -r '.network.interface[0].ipv4.ipAddress[0].publicIpAddress'):$PORT"
+            sudo docker run -d -p 8080:8080 --name calculadora ${{ secrets.DOCKERHUB_USERNAME }}/calculadora:latest
+      
